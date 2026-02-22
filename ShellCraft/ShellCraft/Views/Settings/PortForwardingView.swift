@@ -79,6 +79,7 @@ struct PortForwardingView: View {
 
 struct AddTunnelView: View {
     @ObservedObject var forwardingManager: PortForwardingManager
+    var connection: SSHConnection?
     @Environment(\.dismiss) private var dismiss
 
     @State private var tunnelType: PortForwardTunnel.TunnelType = .local
@@ -86,6 +87,7 @@ struct AddTunnelView: View {
     @State private var remoteHost = "127.0.0.1"
     @State private var remotePort = ""
     @State private var label = ""
+    @State private var error: String?
 
     var body: some View {
         NavigationStack {
@@ -150,12 +152,33 @@ struct AddTunnelView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
-                        // Would create the tunnel with the current connection
-                        dismiss()
+                        createTunnel()
                     }
-                    .disabled(!isValid)
+                    .disabled(!isValid || connection == nil)
                     .fontWeight(.semibold)
                 }
+            }
+        }
+    }
+
+    private func createTunnel() {
+        guard let connection = connection,
+              let lp = Int(localPort) else { return }
+
+        let rp = Int(remotePort) ?? 0
+
+        Task {
+            do {
+                _ = try await forwardingManager.createLocalForward(
+                    connection: connection,
+                    localPort: lp,
+                    remoteHost: remoteHost,
+                    remotePort: rp,
+                    label: label.isEmpty ? nil : label
+                )
+                dismiss()
+            } catch {
+                self.error = error.localizedDescription
             }
         }
     }

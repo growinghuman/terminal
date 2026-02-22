@@ -81,14 +81,15 @@ struct URLSchemeHandler {
 
         guard !hostname.isEmpty else { return }
 
+        let password = url.password
         let host = Host(
             name: "\(username)@\(hostname)",
             hostname: hostname,
             port: port,
             username: username,
-            authMethod: .password
+            authMethod: password != nil ? .password : .publicKey
         )
 
-        await viewModel.openConnection(host: host)
+        await viewModel.openConnection(host: host, password: password)
     }
 }
