@@ -27,13 +27,30 @@ Termius, Blink Shell과 유사한 **iOS용 전문 터미널/SSH 클라이언트 
 | 차별점 | 오픈소스(GPL3), Mosh 클라이언트 Swift 재구현, 4K 외부 디스플레이 |
 | 렌더링 | Chromium HTerm 기반 고속 렌더링 |
 
-### 2.3 기타 경쟁 앱
+### 2.3 Prompt 3 (by Panic)
+| 항목 | 내용 |
+|------|------|
+| 가격 | $20/년 또는 $100 일회성 |
+| 핵심 기능 | SSH, Mosh, Eternal Terminal, Port Forwarding |
+| 차별점 | GPU 가속 렌더링 (10x 속도), Panic 디자인, YubiKey/Secure Enclave 인증 |
+| 기타 | Cross-platform 구매 (iOS + macOS 통합) |
+
+### 2.4 Secure ShellFish
+| 항목 | 내용 |
+|------|------|
+| 가격 | Freemium / $2.99/월 / $14.99/년 / $29.99 일회성 |
+| 핵심 기능 | SSH, SFTP, Files.app 깊은 통합, tmux Handoff |
+| 차별점 | iOS 생태계 최강 통합 (Files, Shortcuts, Widget, Apple Watch, visionOS) |
+| 기술 | SwiftTerm 기반, iCloud Keychain 동기화 |
+
+### 2.5 기타 경쟁 앱
 | 앱 | 특징 |
 |------|------|
-| **Secure ShellFish** | SwiftTerm 기반, Apple 생태계 깊은 통합 (Files.app, Shortcuts) |
 | **a-Shell** | 로컬 Unix 터미널, C/C++→WebAssembly 컴파일, Python/JS 실행 |
-| **iSH Shell** | x86 에뮬레이션으로 Linux 환경 제공, Alpine Linux 패키지 |
+| **iSH Shell** | x86 에뮬레이션으로 Alpine Linux 환경 제공 |
 | **rootshell** | 로컬 쉘 + SSH, 창 투명도, macOS 버전도 제공 |
+| **SecureCRT** | 엔터프라이즈급, VT100/220/Wyse/SCO ANSI 에뮬레이션 |
+| **TermBean** | 터미널 분할, ZModem 파일 전송, iCloud 동기화 |
 
 ---
 
@@ -160,7 +177,8 @@ Termius, Blink Shell과 유사한 **iOS용 전문 터미널/SSH 클라이언트 
 |------|------|------|
 | **[SwiftNIO SSH](https://github.com/apple/swift-nio-ssh)** | Apple 공식 순수 Swift SSH 구현 | ★★★★★ |
 | [SwiftSH](https://github.com/Frugghi/SwiftSH) | libssh2 래퍼 | ★★★☆☆ |
-| [libssh2-apple](https://gitee.com/fandongtongxue_admin/libssh2-apple) | libssh2 Swift Package | ★★★☆☆ |
+| [NMSSH](https://github.com/NMSSH/NMSSH) | libssh2 Objective-C 래퍼 | ★★★☆☆ |
+| [Shout](https://github.com/jakeheis/Shout) | libssh2 기반 Swift, SFTP 포함 | ★★★☆☆ |
 
 **권장: SwiftNIO SSH**
 - Apple 공식 라이브러리
