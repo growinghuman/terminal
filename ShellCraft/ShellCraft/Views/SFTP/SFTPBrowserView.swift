@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SFTPBrowserView: View {
-    @StateObject var sftpClient: SFTPClient
+    @ObservedObject var sftpClient: SFTPClient
     @State private var searchText = ""
     @State private var showCreateDir = false
     @State private var newDirName = ""

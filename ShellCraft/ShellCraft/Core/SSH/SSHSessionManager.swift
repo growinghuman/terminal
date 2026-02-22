@@ -67,7 +67,9 @@ final class SSHSessionManager: ObservableObject {
 
     func disconnect(sessionID: UUID) async {
         guard let index = sessions.firstIndex(where: { $0.id == sessionID }) else { return }
-        await sessions[index].disconnect()
+        let session = sessions[index]
+        await session.disconnect()
+        session.connection.shutdownEventLoop()
         sessions.remove(at: index)
 
         if activeSessionID == sessionID {
@@ -78,6 +80,7 @@ final class SSHSessionManager: ObservableObject {
     func disconnectAll() async {
         for session in sessions {
             await session.disconnect()
+            session.connection.shutdownEventLoop()
         }
         sessions.removeAll()
         activeSessionID = nil

@@ -31,9 +31,7 @@ final class TerminalViewModel: ObservableObject {
             let manager = TerminalManager()
             manager.applyTheme(themeManager.selectedTheme)
 
-            if let fontSize = host.fontSize as Int? {
-                manager.setFontSize(CGFloat(fontSize))
-            }
+            manager.setFontSize(CGFloat(host.fontSize))
 
             manager.attachSession(session)
             try await session.startShell(
@@ -52,8 +50,10 @@ final class TerminalViewModel: ObservableObject {
             tabs.append(tab)
             activeTabID = tab.id
 
-            // Update last connected
-            host.lastConnectedAt = Date()
+            // Update last connected (only for persisted hosts)
+            if host.modelContext != nil {
+                host.lastConnectedAt = Date()
+            }
         } catch {
             connectionError = error.localizedDescription
             showConnectionError = true

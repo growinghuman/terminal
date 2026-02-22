@@ -38,12 +38,12 @@ struct TerminalFullScreenView: View {
     var body: some View {
         TerminalWrapperView(terminalManager: terminalManager)
             .gesture(
-                MagnificationGesture()
+                MagnifyGesture()
                     .updating($pinchScale) { value, state, _ in
-                        state = value
+                        state = value.magnification
                     }
-                    .onEnded { scale in
-                        let newSize = max(8, min(32, currentFontSize * scale))
+                    .onEnded { value in
+                        let newSize = max(8, min(32, currentFontSize * value.magnification))
                         currentFontSize = newSize
                         terminalManager.setFontSize(newSize)
                     }

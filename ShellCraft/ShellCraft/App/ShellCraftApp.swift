@@ -4,7 +4,8 @@ import SwiftData
 @main
 struct ShellCraftApp: App {
     @StateObject private var sessionManager = SSHSessionManager()
-    @StateObject private var themeManager = ThemeManager.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
+    @StateObject private var terminalViewModel: TerminalViewModel
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -24,14 +25,18 @@ struct ShellCraftApp: App {
         }
     }()
 
+    init() {
+        let manager = SSHSessionManager()
+        _sessionManager = StateObject(wrappedValue: manager)
+        _terminalViewModel = StateObject(wrappedValue: TerminalViewModel(sessionManager: manager))
+    }
+
     var body: some Scene {
         WindowGroup {
             MainTabView()
                 .environmentObject(sessionManager)
                 .environmentObject(themeManager)
-                .environmentObject(
-                    TerminalViewModel(sessionManager: sessionManager)
-                )
+                .environmentObject(terminalViewModel)
         }
         .modelContainer(sharedModelContainer)
     }

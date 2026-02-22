@@ -31,7 +31,8 @@ final class SSHConnection: @unchecked Sendable {
         self.group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
     }
 
-    deinit {
+    /// Shuts down the NIO event loop group. Called after disconnect.
+    func shutdownEventLoop() {
         try? group.syncShutdownGracefully()
     }
 
@@ -58,7 +59,7 @@ final class SSHConnection: @unchecked Sendable {
             .connectTimeout(.seconds(30))
 
         do {
-            self.channel = try await bootstrap.connect(host: host, port: port).get()
+            self.channel = try await bootstrap.connect(host: host, port: port)
             updateState(.connected)
         } catch {
             updateState(.error(error.localizedDescription))

@@ -12,7 +12,7 @@ final class Host {
     var group: String?
     var terminalThemeID: String?
     var fontSize: Int
-    var environmentVariables: [String: String]
+    var environmentVariablesData: Data
     var keepAliveInterval: Int
     var createdAt: Date
     var updatedAt: Date
@@ -42,12 +42,21 @@ final class Host {
         self.group = group
         self.terminalThemeID = terminalThemeID
         self.fontSize = fontSize
-        self.environmentVariables = environmentVariables
+        self.environmentVariablesData = (try? JSONEncoder().encode(environmentVariables)) ?? Data()
         self.keepAliveInterval = keepAliveInterval
         self.createdAt = Date()
         self.updatedAt = Date()
         self.isFavorite = false
         self.notes = notes
+    }
+
+    var environmentVariables: [String: String] {
+        get {
+            (try? JSONDecoder().decode([String: String].self, from: environmentVariablesData)) ?? [:]
+        }
+        set {
+            environmentVariablesData = (try? JSONEncoder().encode(newValue)) ?? Data()
+        }
     }
 
     var displayAddress: String {

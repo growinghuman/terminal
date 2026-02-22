@@ -54,7 +54,7 @@ struct AddHostView: View {
             TextField("Hostname or IP", text: $hostname)
                 .textContentType(.URL)
                 .keyboardType(.URL)
-                .autocapitalization(.none)
+                .textInputAutocapitalization(.never)
                 .disableAutocorrection(true)
 
             HStack {
@@ -68,7 +68,7 @@ struct AddHostView: View {
 
             TextField("Username", text: $username)
                 .textContentType(.username)
-                .autocapitalization(.none)
+                .textInputAutocapitalization(.never)
                 .disableAutocorrection(true)
         }
     }

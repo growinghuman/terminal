@@ -85,9 +85,16 @@ extension Color {
 
     var hexString: String {
         guard let components = UIColor(self).cgColor.components else { return "#000000" }
-        let r = Int(components[0] * 255)
-        let g = Int(components[1] * 255)
-        let b = Int(components[2] * 255)
+        let r, g, b: Int
+        if components.count >= 3 {
+            r = Int(components[0] * 255)
+            g = Int(components[1] * 255)
+            b = Int(components[2] * 255)
+        } else {
+            // Grayscale: single component + alpha
+            let gray = Int(components[0] * 255)
+            r = gray; g = gray; b = gray
+        }
         return String(format: "#%02X%02X%02X", r, g, b)
     }
 }

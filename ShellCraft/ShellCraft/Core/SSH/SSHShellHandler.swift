@@ -55,6 +55,7 @@ final class SSHExecHandler: ChannelDuplexHandler {
     private var outputBuffer = Data()
     var onComplete: ((Data) -> Void)?
     var onData: ((Data) -> Void)?
+    var onError: ((Error) -> Void)?
 
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let channelData = unwrapInboundIn(data)
@@ -84,5 +85,10 @@ final class SSHExecHandler: ChannelDuplexHandler {
     func channelInactive(context: ChannelHandlerContext) {
         onComplete?(outputBuffer)
         context.fireChannelInactive()
+    }
+
+    func errorCaught(context: ChannelHandlerContext, error: Error) {
+        onError?(error)
+        context.fireErrorCaught(error)
     }
 }

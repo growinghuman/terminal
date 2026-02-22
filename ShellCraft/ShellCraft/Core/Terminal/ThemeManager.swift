@@ -1,6 +1,7 @@
 import Foundation
 
 /// Manages terminal themes loading and persistence
+@MainActor
 final class ThemeManager: ObservableObject {
     static let shared = ThemeManager()
 

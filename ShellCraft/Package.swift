@@ -28,7 +28,8 @@ let package = Package(
                 .product(name: "SwiftTerm", package: "SwiftTerm"),
                 .product(name: "Crypto", package: "swift-crypto"),
             ],
-            path: "ShellCraft"
+            path: "ShellCraft",
+            exclude: ["App/ShellCraftApp.swift"]
         ),
         .testTarget(
             name: "ShellCraftTests",

@@ -20,7 +20,7 @@ struct HostDetailView: View {
                 LabeledContent("Hostname") {
                     TextField("Hostname", text: $host.hostname)
                         .multilineTextAlignment(.trailing)
-                        .autocapitalization(.none)
+                        .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
                 }
 
@@ -34,7 +34,7 @@ struct HostDetailView: View {
                 LabeledContent("Username") {
                     TextField("Username", text: $host.username)
                         .multilineTextAlignment(.trailing)
-                        .autocapitalization(.none)
+                        .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
                 }
             }

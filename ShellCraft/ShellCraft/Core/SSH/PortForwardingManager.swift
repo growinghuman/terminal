@@ -9,7 +9,8 @@ final class PortForwardingManager: ObservableObject {
 
     private let group = MultiThreadedEventLoopGroup(numberOfThreads: 2)
 
-    deinit {
+    /// Call this before the manager is released to cleanly shut down the event loop group
+    nonisolated func shutdown() {
         try? group.syncShutdownGracefully()
     }
 

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ThemePickerView: View {
     @Binding var selectedThemeID: String
-    @StateObject private var themeManager = ThemeManager.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
 
     var body: some View {
         List {

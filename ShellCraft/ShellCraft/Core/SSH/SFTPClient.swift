@@ -161,6 +161,15 @@ final class SFTPClient: ObservableObject {
         return try await executeCommand(command)
     }
 
+    /// Write content to a remote file
+    func writeFile(_ path: String, content: String) async throws {
+        let escapedContent = content
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "'\\''")
+        let command = "printf '%s' '\(escapedContent)' > \(escapeShellArg(path))"
+        _ = try await executeCommand(command)
+    }
+
     /// Get file info (stat)
     func fileInfo(_ path: String) async throws -> String {
         let command = "stat \(escapeShellArg(path)) 2>&1"
@@ -208,20 +217,21 @@ final class SFTPClient: ObservableObject {
     // MARK: - Private
 
     private func executeCommand(_ command: String) async throws -> String {
-        return try await withCheckedThrowingContinuation { continuation in
-            Task {
-                do {
-                    let channel = try await session.connection.createExecChannel(command: command)
+        let channel = try await session.connection.createExecChannel(command: command)
+        let handler = try await channel.pipeline.handler(type: SSHExecHandler.self).get()
 
-                    if let handler = try? await channel.pipeline.handler(type: SSHExecHandler.self).get() {
-                        handler.onComplete = { data in
-                            let output = String(data: data, encoding: .utf8) ?? ""
-                            continuation.resume(returning: output)
-                        }
-                    }
-                } catch {
-                    continuation.resume(throwing: error)
-                }
+        return try await withCheckedThrowingContinuation { continuation in
+            var resumed = false
+            handler.onComplete = { data in
+                guard !resumed else { return }
+                resumed = true
+                let output = String(data: data, encoding: .utf8) ?? ""
+                continuation.resume(returning: output)
+            }
+            handler.onError = { error in
+                guard !resumed else { return }
+                resumed = true
+                continuation.resume(throwing: error)
             }
         }
     }

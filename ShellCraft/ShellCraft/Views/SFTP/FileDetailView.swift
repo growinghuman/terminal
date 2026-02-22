@@ -175,21 +175,12 @@ struct FileDetailView: View {
     private func saveFile() {
         Task {
             do {
-                // Write content using heredoc-style echo
-                let escapedContent = editedContent
-                    .replacingOccurrences(of: "\\", with: "\\\\")
-                    .replacingOccurrences(of: "'", with: "'\\''")
-                let command = "printf '%s' '\(escapedContent)' > \(escapeShellArg(file.path))"
-                _ = try await sftpClient.readFile(file.path) // dummy; we need exec
+                try await sftpClient.writeFile(file.path, content: editedContent)
                 showEditMode = false
                 fileContent = editedContent
             } catch {
                 self.error = error.localizedDescription
             }
         }
-    }
-
-    private func escapeShellArg(_ arg: String) -> String {
-        "'" + arg.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 }

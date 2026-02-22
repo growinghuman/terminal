@@ -50,7 +50,7 @@ struct QuickConnectView: View {
                     TextField("user@hostname:port", text: $connectionString)
                         .font(.system(.body, design: .monospaced))
                         .textFieldStyle(.roundedBorder)
-                        .autocapitalization(.none)
+                        .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
                         .keyboardType(.URL)
                         .submitLabel(.next)
