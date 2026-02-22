@@ -60,7 +60,7 @@ struct HostListView: View {
                 SecureField("Password", text: $passwordInput)
                 Button("Connect") {
                     if let host = selectedHost {
-                        connectToHost(host, password: passwordInput)
+                        connectToHost(host, password: passwordInput, mosh: connectWithMosh)
                         passwordInput = ""
                     }
                 }
@@ -180,7 +180,13 @@ struct HostListView: View {
             Button {
                 initiateConnection(to: host)
             } label: {
-                Label("Connect", systemImage: "bolt.fill")
+                Label("Connect (SSH)", systemImage: "bolt.fill")
+            }
+
+            Button {
+                initiateConnection(to: host, useMosh: true)
+            } label: {
+                Label("Connect (Mosh)", systemImage: "arrow.triangle.2.circlepath")
             }
 
             NavigationLink {
@@ -218,25 +224,39 @@ struct HostListView: View {
 
     // MARK: - Actions
 
-    private func initiateConnection(to host: Host) {
+    @State private var connectWithMosh = false
+
+    private func initiateConnection(to host: Host, useMosh: Bool = false) {
         selectedHost = host
+        connectWithMosh = useMosh
 
         switch host.authMethod {
         case .password:
-            // Check if password is stored
             if let storedPassword = try? KeychainHelper.getPassword(for: host.id.uuidString) {
-                connectToHost(host, password: storedPassword)
+                connectToHost(host, password: storedPassword, mosh: useMosh)
             } else {
                 showingPasswordPrompt = true
             }
         case .publicKey, .certificate:
-            connectToHost(host)
+            connectToHost(host, mosh: useMosh)
         }
     }
 
-    private func connectToHost(_ host: Host, password: String? = nil) {
+    private func connectToHost(_ host: Host, password: String? = nil, mosh: Bool = false) {
         Task {
-            await terminalViewModel.openConnection(host: host, password: password)
+            if mosh {
+                await terminalViewModel.openMoshConnection(
+                    host: host,
+                    password: password,
+                    modelContext: modelContext
+                )
+            } else {
+                await terminalViewModel.openConnection(
+                    host: host,
+                    password: password,
+                    modelContext: modelContext
+                )
+            }
         }
     }
 }

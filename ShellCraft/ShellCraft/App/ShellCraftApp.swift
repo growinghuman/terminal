@@ -12,6 +12,7 @@ struct ShellCraftApp: App {
             Host.self,
             SSHKeyPair.self,
             Snippet.self,
+            SessionLog.self,
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,

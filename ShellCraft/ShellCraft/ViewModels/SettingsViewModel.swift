@@ -10,6 +10,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var scrollbackBufferSize: Int
     @Published var defaultKeepAlive: Int
     @Published var useBiometricAuth: Bool
+    @Published var sessionLoggingEnabled: Bool
 
     private let defaults = UserDefaults.standard
     let themeManager = ThemeManager.shared
@@ -22,6 +23,7 @@ final class SettingsViewModel: ObservableObject {
         self.scrollbackBufferSize = UserDefaults.standard.integer(forKey: "scrollbackBufferSize").nonZero ?? 10000
         self.defaultKeepAlive = UserDefaults.standard.integer(forKey: "defaultKeepAlive").nonZero ?? 60
         self.useBiometricAuth = UserDefaults.standard.bool(forKey: "useBiometricAuth")
+        self.sessionLoggingEnabled = UserDefaults.standard.bool(forKey: "sessionLoggingEnabled")
     }
 
     func save() {
@@ -32,8 +34,14 @@ final class SettingsViewModel: ObservableObject {
         defaults.set(scrollbackBufferSize, forKey: "scrollbackBufferSize")
         defaults.set(defaultKeepAlive, forKey: "defaultKeepAlive")
         defaults.set(useBiometricAuth, forKey: "useBiometricAuth")
+        defaults.set(sessionLoggingEnabled, forKey: "sessionLoggingEnabled")
 
         themeManager.selectTheme(selectedThemeID)
+
+        // Sync settings to iCloud if enabled
+        if SyncManager.shared.syncEnabled {
+            SyncManager.shared.syncSettings()
+        }
     }
 }
 

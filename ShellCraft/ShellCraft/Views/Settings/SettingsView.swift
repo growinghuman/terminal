@@ -11,6 +11,8 @@ struct SettingsView: View {
                 appearanceSection
                 terminalSection
                 connectionSection
+                loggingSection
+                syncSection
                 securitySection
                 aboutSection
             }
@@ -95,6 +97,35 @@ struct SettingsView: View {
 
             NavigationLink("SSH Keys") {
                 KeySelectionView()
+            }
+        }
+    }
+
+    private var loggingSection: some View {
+        Section {
+            Toggle("Session Logging", isOn: $viewModel.sessionLoggingEnabled)
+
+            NavigationLink("View Session Logs") {
+                SessionLogListView()
+            }
+        } header: {
+            Text("Logging")
+        } footer: {
+            Text("Automatically record terminal output for each session. Logs are stored locally and can be exported.")
+        }
+    }
+
+    private var syncSection: some View {
+        Section("Cloud") {
+            NavigationLink {
+                SyncSettingsView()
+            } label: {
+                HStack {
+                    Text("iCloud Sync")
+                    Spacer()
+                    Text(SyncManager.shared.syncEnabled ? "On" : "Off")
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }

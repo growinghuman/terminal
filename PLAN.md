@@ -362,6 +362,13 @@ ShellCraft/
 | 7-8 | 스니펫 & 자동화 | 스니펫 관리, Shortcuts 연동, URL Scheme |
 | 9-10 | 포트 포워딩 | Local/Remote/Dynamic 포워딩 UI |
 
+#### Phase 2 완료 기준
+- [x] SFTP 파일 브라우저 (읽기/다운로드/업로드)
+- [x] Mosh 프로토콜 지원 (UDP, 자동 재연결, 로컬 에코 예측)
+- [x] 스니펫 CRUD 및 변수 치환
+- [x] URL Scheme 지원 (`shellcraft://connect`)
+- [x] 포트 포워딩 UI (Local/Remote/Dynamic)
+
 ### Phase 3: 프리미엄 & 출시 (6~8주)
 
 | 주차 | 마일스톤 | 상세 |
@@ -370,6 +377,12 @@ ShellCraft/
 | 3-4 | 세션 로깅 | 자동 로그 기록, 검색, 내보내기 |
 | 5-6 | 고급 UI | 외부 디스플레이, Split View 개선 |
 | 7-8 | App Store 출시 | 심사 준비, 마케팅, 출시 |
+
+#### Phase 3 완료 기준
+- [x] iCloud 동기화 (CloudKit + NSUbiquitousKeyValueStore)
+- [x] 세션 로깅 (자동 기록, 검색, 내보내기)
+- [x] 외부 디스플레이 지원 (4K, QHD, FHD 자동 감지)
+- [ ] App Store 출시 (심사 준비 필요)
 
 ---
 

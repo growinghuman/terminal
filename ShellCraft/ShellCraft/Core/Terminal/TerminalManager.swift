@@ -44,7 +44,7 @@ final class TerminalManager: ObservableObject {
         session = nil
     }
 
-    private func handleReceivedData(_ data: Data) {
+    func handleReceivedData(_ data: Data) {
         let bytes = [UInt8](data)
         terminalView.feed(byteArray: bytes)
     }
