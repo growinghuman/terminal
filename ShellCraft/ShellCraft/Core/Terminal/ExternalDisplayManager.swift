@@ -44,8 +44,13 @@ final class ExternalDisplayManager: ObservableObject {
     }
 
     private func checkForExternalDisplay() {
-        if UIScreen.screens.count > 1, let external = UIScreen.screens.last {
-            handleScreenConnected(external)
+        // Check connected scenes for external displays
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            if scene.session.role == .windowExternalDisplayNonInteractive {
+                handleScreenConnected(scene.screen)
+                break
+            }
         }
     }
 

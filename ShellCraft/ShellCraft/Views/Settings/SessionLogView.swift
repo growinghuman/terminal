@@ -153,12 +153,12 @@ struct SessionLogDetailView: View {
         }
         .sheet(isPresented: $showExport) {
             let exportedText = SessionLogger.exportLog(log)
-            if let data = exportedText.data(using: .utf8) {
-                let tempURL = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("\(log.hostName)_\(log.startedAt.formatted(.iso8601)).log")
-                let _ = try? data.write(to: tempURL)
-                ShareSheet(items: [tempURL])
-            }
+            let safeName = log.hostName.replacingOccurrences(of: "/", with: "_")
+            let timestamp = Int(log.startedAt.timeIntervalSince1970)
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("\(safeName)_\(timestamp).log")
+            let _ = try? exportedText.data(using: .utf8)?.write(to: tempURL)
+            ShareSheet(items: [tempURL])
         }
     }
 

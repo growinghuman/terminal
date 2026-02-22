@@ -1,5 +1,6 @@
 import Foundation
 import NIO
+import NIOSSH
 import Crypto
 
 /// Mosh client that establishes and maintains a Mosh connection via UDP.
@@ -14,7 +15,7 @@ final class MoshClient: ObservableObject {
     private var udpChannel: Channel?
     private let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
     private var sessionKey: SymmetricKey?
-    private var remotePort: Int?
+    private var remoteAddress: SocketAddress?
     private var sequenceNumber: UInt64 = 0
 
     private var keepAliveTimer: DispatchSourceTimer?
@@ -47,7 +48,10 @@ final class MoshClient: ObservableObject {
     deinit {
         keepAliveTimer?.cancel()
         reconnectTimer?.cancel()
-        try? group.syncShutdownGracefully()
+        let group = self.group
+        DispatchQueue.global(qos: .utility).async {
+            try? group.syncShutdownGracefully()
+        }
     }
 
     // MARK: - Connection
@@ -66,7 +70,6 @@ final class MoshClient: ObservableObject {
 
         // Read mosh-server output to get port and key
         let (port, key) = try await parseMoshServerOutput(channel: execChannel)
-        self.remotePort = port
         self.sessionKey = SymmetricKey(data: key)
 
         // Close exec channel; we no longer need SSH for data transport
@@ -81,20 +84,50 @@ final class MoshClient: ObservableObject {
     }
 
     private func parseMoshServerOutput(channel: Channel) async throws -> (port: Int, key: Data) {
-        // mosh-server prints:
-        //   MOSH CONNECT <port> <base64-key>
+        // mosh-server prints: MOSH CONNECT <port> <base64-key>
+        // Use the SSHExecHandler already in the pipeline to capture output.
         return try await withCheckedThrowingContinuation { continuation in
-            let handler = MoshServerOutputHandler { result in
-                continuation.resume(with: result)
+            var outputBuffer = ""
+            var completed = false
+
+            channel.pipeline.handler(type: SSHExecHandler.self).whenSuccess { handler in
+                handler.onData = { data in
+                    guard !completed, let str = String(data: data, encoding: .utf8) else { return }
+                    outputBuffer += str
+
+                    if let range = outputBuffer.range(of: "MOSH CONNECT") {
+                        let line = outputBuffer[range.lowerBound...]
+                        let parts = line.split(separator: " ")
+                        if parts.count >= 4,
+                           let port = Int(parts[2]),
+                           let keyData = Data(base64Encoded: String(parts[3]).trimmingCharacters(in: .whitespacesAndNewlines)) {
+                            completed = true
+                            continuation.resume(returning: (port: port, key: keyData))
+                        }
+                    }
+                }
+
+                handler.onComplete = { _ in
+                    if !completed {
+                        completed = true
+                        continuation.resume(throwing: MoshError.serverStartFailed)
+                    }
+                }
             }
-            channel.pipeline.addHandler(handler, position: .last).whenComplete { _ in }
+
+            channel.pipeline.handler(type: SSHExecHandler.self).whenFailure { error in
+                if !completed {
+                    completed = true
+                    continuation.resume(throwing: MoshError.serverStartFailed)
+                }
+            }
         }
     }
 
     private func establishUDP(host: String, port: Int) async throws {
         let bootstrap = DatagramBootstrap(group: group)
             .channelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-            .channelInitializer { channel in
+            .channelInitializer { [weak self] channel in
                 channel.pipeline.addHandler(MoshUDPHandler(client: self))
             }
 
@@ -103,31 +136,28 @@ final class MoshClient: ObservableObject {
             .get()
 
         // Connect to remote endpoint
-        let remoteAddress = try SocketAddress.makeAddressResolvingHost(host, port: port)
+        let address = try SocketAddress.makeAddressResolvingHost(host, port: port)
+        self.remoteAddress = address
         self.udpChannel = channel
 
         // Send initial handshake
-        try await sendDatagram(to: remoteAddress, payload: buildHandshake())
+        try await sendDatagram(to: address, payload: buildHandshake())
     }
 
     // MARK: - Data Transport
 
     func sendData(_ data: Data) {
         guard let channel = udpChannel,
-              let remotePort = remotePort,
+              let address = remoteAddress,
               state == .connected else { return }
 
         sequenceNumber += 1
 
         let encrypted = encryptPayload(data)
-        let envelope = channel.allocator.buffer(bytes: encrypted)
+        var buffer = channel.allocator.buffer(capacity: encrypted.count)
+        buffer.writeBytes(encrypted)
 
-        let remoteAddress = try? SocketAddress.makeAddressResolvingHost(
-            "", port: remotePort
-        )
-        guard let address = remoteAddress else { return }
-
-        let packet = AddressedEnvelope(remoteAddress: address, data: envelope)
+        let packet = AddressedEnvelope(remoteAddress: address, data: buffer)
         channel.writeAndFlush(packet, promise: nil)
     }
 
@@ -166,7 +196,14 @@ final class MoshClient: ObservableObject {
     // MARK: - Reconnection
 
     func handleNetworkChange() {
-        guard state == .connected || state != .disconnected else { return }
+        switch state {
+        case .disconnected, .error:
+            return // Don't attempt reconnect from terminal states
+        case .reconnecting:
+            return // Already reconnecting
+        default:
+            break
+        }
         updateState(.reconnecting(attempt: 1))
         attemptReconnect(attempt: 1)
     }
@@ -314,7 +351,7 @@ final class MoshClient: ObservableObject {
         try? udpChannel?.close().wait()
         udpChannel = nil
         sessionKey = nil
-        remotePort = nil
+        remoteAddress = nil
         updateState(.disconnected)
     }
 }
@@ -324,9 +361,9 @@ final class MoshClient: ObservableObject {
 private final class MoshUDPHandler: ChannelInboundHandler {
     typealias InboundIn = AddressedEnvelope<ByteBuffer>
 
-    private let client: MoshClient
+    private weak var client: MoshClient?
 
-    init(client: MoshClient) {
+    init(client: MoshClient?) {
         self.client = client
     }
 
@@ -335,54 +372,17 @@ private final class MoshUDPHandler: ChannelInboundHandler {
         var buffer = envelope.data
         guard let bytes = buffer.readBytes(length: buffer.readableBytes) else { return }
 
+        let client = self.client
         Task { @MainActor in
-            client.handleServerResponse()
-            client.onDataReceived?(Data(bytes))
+            client?.handleServerResponse()
+            client?.onDataReceived?(Data(bytes))
         }
     }
 
     func errorCaught(context: ChannelHandlerContext, error: Error) {
+        let client = self.client
         Task { @MainActor in
-            client.handleNetworkChange()
-        }
-    }
-}
-
-// MARK: - mosh-server Output Parser
-
-private final class MoshServerOutputHandler: ChannelInboundHandler {
-    typealias InboundIn = ByteBuffer
-
-    private var buffer = ""
-    private let completion: (Result<(port: Int, key: Data), Error>) -> Void
-    private var completed = false
-
-    init(completion: @escaping (Result<(port: Int, key: Data), Error>) -> Void) {
-        self.completion = completion
-    }
-
-    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        var inBuffer = unwrapInboundIn(data)
-        if let str = inBuffer.readString(length: inBuffer.readableBytes) {
-            buffer += str
-        }
-
-        // Look for "MOSH CONNECT <port> <key>"
-        if !completed, let range = buffer.range(of: "MOSH CONNECT") {
-            let line = buffer[range.lowerBound...]
-            let parts = line.split(separator: " ")
-            if parts.count >= 4,
-               let port = Int(parts[2]),
-               let keyData = Data(base64Encoded: String(parts[3])) {
-                completed = true
-                completion(.success((port: port, key: keyData)))
-            }
-        }
-    }
-
-    func channelInactive(context: ChannelHandlerContext) {
-        if !completed {
-            completion(.failure(MoshError.serverStartFailed))
+            client?.handleNetworkChange()
         }
     }
 }

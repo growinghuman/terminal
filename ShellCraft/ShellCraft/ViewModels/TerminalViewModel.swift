@@ -2,7 +2,6 @@ import Foundation
 import SwiftUI
 import SwiftData
 import Combine
-import NIOSSH
 
 @MainActor
 final class TerminalViewModel: ObservableObject {
@@ -95,37 +94,12 @@ final class TerminalViewModel: ObservableObject {
         defer { isConnecting = false }
 
         do {
-            // First establish SSH to start mosh-server
-            let sshConnection = SSHConnection(
-                host: host.hostname,
-                port: host.port,
-                username: host.username
-            )
+            // First establish SSH to start mosh-server (reuse sessionManager for auth)
+            let sshSession = try await sessionManager.connect(to: host, password: password)
 
-            let authDelegate: any NIOSSHClientUserAuthenticationDelegate
-            if let password = password {
-                authDelegate = PasswordAuthDelegate(
-                    username: host.username,
-                    password: password
-                )
-            } else {
-                throw SSHError.authenticationFailed
-            }
-
-            let serverAuthDelegate = KnownHostsDelegate(
-                knownHosts: KnownHostsStore(),
-                hostname: host.hostname,
-                port: host.port
-            )
-
-            try await sshConnection.connect(
-                authDelegate: authDelegate,
-                serverAuthDelegate: serverAuthDelegate
-            )
-
-            // Start Mosh session
+            // Start Mosh session using the underlying SSH connection
             let moshClient = MoshClient()
-            try await moshClient.connect(sshConnection: sshConnection)
+            try await moshClient.connect(sshConnection: sshSession.connection)
 
             let moshSession = MoshSession(
                 id: UUID(),
