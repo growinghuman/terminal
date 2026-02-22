@@ -56,7 +56,7 @@ final class SSHConnection: @unchecked Sendable {
                 ])
             }
             .channelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-            .connectTimeout(.seconds(30))
+            .channelOption(ChannelOptions.connectTimeout, value: .seconds(30))
 
         do {
             self.channel = try await bootstrap.connect(host: host, port: port)
@@ -67,7 +67,9 @@ final class SSHConnection: @unchecked Sendable {
         }
     }
 
-    func createShellChannel() async throws -> Channel {
+    /// Creates a session channel with SSHShellHandler installed.
+    /// Caller must request PTY before requesting the shell.
+    func createSessionChannel() async throws -> Channel {
         guard let channel = self.channel else {
             throw SSHError.notConnected
         }
@@ -85,13 +87,14 @@ final class SSHConnection: @unchecked Sendable {
             return promise.futureResult
         }.get()
 
-        // Request shell
+        return childChannel
+    }
+
+    func requestShell(on channel: Channel) async throws {
         let shellRequest = SSHChannelRequestEvent.ShellRequest(
             wantReply: true
         )
-        try await childChannel.triggerUserOutboundEvent(shellRequest).get()
-
-        return childChannel
+        try await channel.triggerUserOutboundEvent(shellRequest).get()
     }
 
     func createExecChannel(command: String) async throws -> Channel {
@@ -129,8 +132,7 @@ final class SSHConnection: @unchecked Sendable {
             terminalCharacterWidth: cols,
             terminalRowHeight: rows,
             terminalPixelWidth: 0,
-            terminalPixelHeight: 0,
-            environmentVariables: [:]  // Empty as env vars sent separately
+            terminalPixelHeight: 0
         )
         try await channel.triggerUserOutboundEvent(ptyRequest).get()
     }

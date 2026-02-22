@@ -1,8 +1,11 @@
 import Foundation
+import NIO
 import NIOSSH
 
-/// Manages known SSH host keys for host verification
-final class KnownHostsStore {
+/// Manages known SSH host keys for host verification.
+/// Thread-safe: all access is serialized through a lock.
+final class KnownHostsStore: @unchecked Sendable {
+    private let lock = NSLock()
     enum VerificationResult {
         case trusted
         case changed
@@ -27,6 +30,9 @@ final class KnownHostsStore {
     }
 
     func verify(host: String, port: Int, key: NIOSSHPublicKey) -> VerificationResult {
+        lock.lock()
+        defer { lock.unlock() }
+
         let keyData = serializePublicKey(key)
         let matching = entries.filter { $0.hostname == host && $0.port == port }
 
@@ -44,6 +50,9 @@ final class KnownHostsStore {
     }
 
     func addHost(_ hostname: String, port: Int, key: NIOSSHPublicKey) {
+        lock.lock()
+        defer { lock.unlock() }
+
         let entry = HostEntry(
             hostname: hostname,
             port: port,
@@ -52,19 +61,24 @@ final class KnownHostsStore {
             addedAt: Date()
         )
 
-        // Remove existing entries for this host
         entries.removeAll { $0.hostname == hostname && $0.port == port }
         entries.append(entry)
         saveEntries()
     }
 
     func removeHost(_ hostname: String, port: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+
         entries.removeAll { $0.hostname == hostname && $0.port == port }
         saveEntries()
     }
 
     func allHosts() -> [(hostname: String, port: Int, keyType: String, addedAt: Date)] {
-        entries.map { ($0.hostname, $0.port, $0.keyType, $0.addedAt) }
+        lock.lock()
+        defer { lock.unlock() }
+
+        return entries.map { ($0.hostname, $0.port, $0.keyType, $0.addedAt) }
     }
 
     // MARK: - Private
@@ -96,13 +110,15 @@ final class KnownHostsStore {
     }
 
     private func describeKeyType(_ key: NIOSSHPublicKey) -> String {
-        if key.isEd25519PublicKey {
+        // Use the key's string description to determine type
+        let description = String(describing: key)
+        if description.contains("Ed25519") {
             return "ed25519"
-        } else if key.isP256PublicKey {
+        } else if description.contains("P256") {
             return "ecdsa-sha2-nistp256"
-        } else if key.isP384PublicKey {
+        } else if description.contains("P384") {
             return "ecdsa-sha2-nistp384"
-        } else if key.isP521PublicKey {
+        } else if description.contains("P521") {
             return "ecdsa-sha2-nistp521"
         }
         return "unknown"

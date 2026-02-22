@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import NIO
 import NIOSSH
 
@@ -114,16 +115,20 @@ final class SSHSession: ObservableObject, Identifiable {
     }
 
     func startShell(cols: Int = 80, rows: Int = 24) async throws {
-        let channel = try await connection.createShellChannel()
+        // Create session channel
+        let channel = try await connection.createSessionChannel()
         self.shellChannel = channel
 
-        // Request PTY
+        // PTY must be requested BEFORE the shell (SSH protocol requirement)
         try await connection.requestPTY(on: channel, cols: cols, rows: rows)
+        try await connection.requestShell(on: channel)
 
-        // Set up data handler
+        // Set up data handler - dispatch to MainActor since onData comes from NIO event loop
         if let handler = try? await channel.pipeline.handler(type: SSHShellHandler.self).get() {
             handler.onData = { [weak self] data in
-                self?.onDataReceived?(data)
+                Task { @MainActor in
+                    self?.onDataReceived?(data)
+                }
             }
         }
     }
@@ -131,9 +136,12 @@ final class SSHSession: ObservableObject, Identifiable {
     func sendData(_ data: Data) {
         guard let channel = shellChannel, channel.isActive else { return }
 
-        var buffer = channel.allocator.buffer(capacity: data.count)
-        buffer.writeBytes(data)
-        channel.writeAndFlush(buffer, promise: nil)
+        // Dispatch write to the channel's event loop for thread safety
+        channel.eventLoop.execute {
+            var buffer = channel.allocator.buffer(capacity: data.count)
+            buffer.writeBytes(data)
+            channel.writeAndFlush(buffer, promise: nil)
+        }
     }
 
     func sendText(_ text: String) {
