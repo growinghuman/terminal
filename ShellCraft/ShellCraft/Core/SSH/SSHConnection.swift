@@ -32,8 +32,12 @@ final class SSHConnection: @unchecked Sendable {
     }
 
     /// Shuts down the NIO event loop group. Called after disconnect.
+    /// Dispatched to background to avoid blocking the caller.
     func shutdownEventLoop() {
-        try? group.syncShutdownGracefully()
+        let group = self.group
+        DispatchQueue.global(qos: .utility).async {
+            try? group.syncShutdownGracefully()
+        }
     }
 
     func connect(authDelegate: NIOSSHClientUserAuthenticationDelegate,
@@ -63,6 +67,7 @@ final class SSHConnection: @unchecked Sendable {
             updateState(.connected)
         } catch {
             updateState(.error(error.localizedDescription))
+            shutdownEventLoop()
             throw error
         }
     }

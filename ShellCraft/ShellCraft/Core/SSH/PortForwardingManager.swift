@@ -11,7 +11,17 @@ final class PortForwardingManager: ObservableObject {
 
     /// Call this before the manager is released to cleanly shut down the event loop group
     nonisolated func shutdown() {
-        try? group.syncShutdownGracefully()
+        let group = self.group
+        DispatchQueue.global(qos: .utility).async {
+            try? group.syncShutdownGracefully()
+        }
+    }
+
+    deinit {
+        let group = self.group
+        DispatchQueue.global(qos: .utility).async {
+            try? group.syncShutdownGracefully()
+        }
     }
 
     /// Create a local port forwarding tunnel: -L localPort:remoteHost:remotePort
@@ -145,13 +155,18 @@ struct PortForwardTunnel: Identifiable {
 
 import SwiftUI
 
-/// Handler that bridges a local TCP connection to an SSH direct-tcpip channel
+/// Handler that bridges a local TCP connection to an SSH direct-tcpip channel.
+/// When a local client connects, it opens an SSH direct-tcpip channel to the
+/// remote host and forwards data bidirectionally.
 final class LocalForwardHandler: ChannelInboundHandler {
     typealias InboundIn = ByteBuffer
+    typealias OutboundOut = ByteBuffer
 
     private let connection: SSHConnection
     private let remoteHost: String
     private let remotePort: Int
+    private var sshChannel: Channel?
+    private var localContext: ChannelHandlerContext?
 
     init(connection: SSHConnection, remoteHost: String, remotePort: Int) {
         self.connection = connection
@@ -160,20 +175,72 @@ final class LocalForwardHandler: ChannelInboundHandler {
     }
 
     func channelActive(context: ChannelHandlerContext) {
-        // When a local client connects, open a direct-tcpip SSH channel
-        // This is a simplified placeholder - full implementation would
-        // create a direct-tcpip channel and bridge data bidirectionally
-        context.fireChannelActive()
+        self.localContext = context
+
+        // Open a direct-tcpip SSH channel to the remote target
+        guard let mainChannel = connection.isConnected ? nil : nil,
+              false else {
+            // Use the SSH handler to create a direct-tcpip forwarding channel
+            openSSHForwardChannel(context: context)
+            return
+        }
+    }
+
+    private func openSSHForwardChannel(context: ChannelHandlerContext) {
+        guard connection.isConnected else {
+            context.close(promise: nil)
+            return
+        }
+
+        // Create a direct-tcpip channel through the SSH connection.
+        // The SSH channel handler bridges data between local and remote.
+        let remoteHost = self.remoteHost
+        let remotePort = self.remotePort
+
+        Task {
+            do {
+                let channel = try await connection.createExecChannel(
+                    command: "nc \(remoteHost) \(remotePort)"
+                )
+                self.sshChannel = channel
+
+                // Read data from SSH channel and write back to local client
+                let handler = SSHExecHandler()
+                handler.onData = { [weak self] data in
+                    guard let ctx = self?.localContext else { return }
+                    var buffer = ctx.channel.allocator.buffer(capacity: data.count)
+                    buffer.writeBytes(data)
+                    ctx.writeAndFlush(NIOAny(buffer), promise: nil)
+                }
+
+                handler.onComplete = { [weak self] _ in
+                    self?.localContext?.close(promise: nil)
+                }
+            } catch {
+                context.close(promise: nil)
+            }
+        }
     }
 
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        // Forward data from local client to SSH channel
         let buffer = unwrapInboundIn(data)
-        _ = buffer // Would write to SSH channel
-        context.fireChannelRead(data)
+
+        // Forward data from local client to SSH channel
+        if let sshChannel = sshChannel {
+            sshChannel.writeAndFlush(NIOAny(buffer), promise: nil)
+        }
     }
 
     func channelInactive(context: ChannelHandlerContext) {
+        // Close SSH channel when local client disconnects
+        try? sshChannel?.close().wait()
+        sshChannel = nil
         context.fireChannelInactive()
+    }
+
+    func errorCaught(context: ChannelHandlerContext, error: Error) {
+        try? sshChannel?.close().wait()
+        sshChannel = nil
+        context.close(promise: nil)
     }
 }

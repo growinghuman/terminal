@@ -24,7 +24,8 @@ final class KnownHostsStore: @unchecked Sendable {
     private let fileURL: URL
 
     init() {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
         self.fileURL = documentsPath.appendingPathComponent("known_hosts.json")
         loadEntries()
     }
@@ -98,27 +99,27 @@ final class KnownHostsStore: @unchecked Sendable {
             let data = try JSONEncoder().encode(entries)
             try data.write(to: fileURL, options: .atomic)
         } catch {
+            #if DEBUG
             print("Failed to save known hosts: \(error)")
+            #endif
         }
     }
 
     private func serializePublicKey(_ key: NIOSSHPublicKey) -> Data {
-        // Serialize the public key for storage
+        // Use the SSH wire format for stable, standard serialization
         var buffer = ByteBufferAllocator().buffer(capacity: 256)
         buffer.writeSSHHostKey(key)
         return Data(buffer.readableBytesView)
     }
 
     private func describeKeyType(_ key: NIOSSHPublicKey) -> String {
-        // Use the key's string description to determine type
-        let description = String(describing: key)
-        if description.contains("Ed25519") {
+        if key.isEd25519PublicKey {
             return "ed25519"
-        } else if description.contains("P256") {
+        } else if key.isP256PublicKey {
             return "ecdsa-sha2-nistp256"
-        } else if description.contains("P384") {
+        } else if key.isP384PublicKey {
             return "ecdsa-sha2-nistp384"
-        } else if description.contains("P521") {
+        } else if key.isP521PublicKey {
             return "ecdsa-sha2-nistp521"
         }
         return "unknown"

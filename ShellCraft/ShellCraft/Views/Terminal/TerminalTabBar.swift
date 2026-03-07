@@ -21,6 +21,7 @@ struct TerminalTabBar: View {
                         .foregroundStyle(.secondary)
                         .frame(width: 32, height: 32)
                 }
+                .accessibilityLabel("New connection")
                 .padding(.horizontal, 4)
             }
             .padding(.horizontal, 8)
@@ -58,6 +59,7 @@ struct TerminalTabBar: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Close \(tab.title)")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)

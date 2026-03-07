@@ -28,7 +28,7 @@ struct MainTabView: View {
                     Label("Terminal", systemImage: "terminal.fill")
                 }
                 .tag(Tab.terminal)
-                .badge(terminalViewModel.tabs.count > 0 ? terminalViewModel.tabs.count : 0)
+                .badge(terminalViewModel.tabs.isEmpty ? 0 : terminalViewModel.tabs.count)  // 0 hides the badge
 
             // Snippets Tab
             SnippetsListView()
@@ -63,6 +63,18 @@ struct MainTabView: View {
         }
         .onKeyPress(.init(","), modifiers: .command) {
             showSettings = true
+            return .handled
+        }
+        .onKeyPress(.init("1"), modifiers: .command) {
+            selectedTab = .hosts
+            return .handled
+        }
+        .onKeyPress(.init("2"), modifiers: .command) {
+            selectedTab = .terminal
+            return .handled
+        }
+        .onKeyPress(.init("3"), modifiers: .command) {
+            selectedTab = .snippets
             return .handled
         }
     }

@@ -10,9 +10,13 @@ struct TerminalContainerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if terminalViewModel.tabs.isEmpty {
+            if terminalViewModel.isConnecting {
+                connectingOverlay
+            }
+
+            if terminalViewModel.tabs.isEmpty && !terminalViewModel.isConnecting {
                 noSessionView
-            } else {
+            } else if !terminalViewModel.tabs.isEmpty {
                 // Tab Bar
                 TerminalTabBar(
                     tabs: terminalViewModel.tabs,
@@ -80,6 +84,18 @@ struct TerminalContainerView: View {
 
     // MARK: - Subviews
 
+    private var connectingOverlay: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.large)
+            Text("Connecting...")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: terminalViewModel.tabs.isEmpty ? .infinity : 0)
+        .background(terminalViewModel.tabs.isEmpty ? Color(.systemBackground) : .clear)
+    }
+
     private var noSessionView: some View {
         ContentUnavailableView {
             Label("No Active Sessions", systemImage: "terminal")
@@ -123,6 +139,7 @@ struct TerminalContainerView: View {
                         .background(.ultraThinMaterial)
                         .clipShape(Circle())
                 }
+                .accessibilityLabel("SFTP File Browser")
 
                 Button {
                     showPortForwarding = true
@@ -133,6 +150,7 @@ struct TerminalContainerView: View {
                         .background(.ultraThinMaterial)
                         .clipShape(Circle())
                 }
+                .accessibilityLabel("Port Forwarding")
             }
 
             Menu {
